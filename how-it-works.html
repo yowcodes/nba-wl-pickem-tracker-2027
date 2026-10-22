@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>How W/L Pickem Works</title>
+<meta name="description" content="A 58-second animated explainer of W/L Pickem: draft NBA teams' wins and losses, and the most points at the end of the season wins.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="How W/L Pickem Works">
+<meta property="og:description" content="A 58-second animated explainer of W/L Pickem: draft NBA teams' wins and losses, and the most points at the end of the season wins.">
+<meta name="theme-color" content="#0E131B">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Public+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Concept: a six-scene courtside explainer that plays itself. One dark stage, scoreboard type,
+   orange only for the thing that matters in each scene. Single dark look by choice. */
+:root{
+  --bg:#0E131B; --surface:#161D29; --surface2:#1F2837; --fg:#E8EDF5; --muted:#93A0B5; --line:#2A3547;
+  --accent:#FB923C; --accent-ink:#1A0E05;
+  --win:#5EEAD4; --win-t:#12332F; --loss:#FDA4AF; --loss-t:#3A1A1D;
+  --display:"Big Shoulders Display","Arial Narrow","Helvetica Neue",sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.4}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:960px;margin:0 auto;padding-block:20px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.frame{container-type:inline-size;position:relative;aspect-ratio:16/9;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+@media (max-width:600px){.frame{aspect-ratio:3/4}}
+.scene{--k:1;position:absolute;inset:0;padding:5cqw;display:flex;flex-direction:column;justify-content:center;gap:calc(2cqw*var(--k));
+  opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s}
+@container (max-width:560px){.scene{--k:1.8}}
+.scene.on{opacity:1;visibility:visible}
+.kick{margin:0;font-size:max(11px,calc(2cqw*var(--k)));font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.line{margin:0;font-size:max(14px,calc(2.6cqw*var(--k)));color:var(--fg);max-width:34em;text-wrap:balance}
+.line b{color:var(--accent)}
+.hl{font-family:var(--display);font-weight:800;text-transform:uppercase;line-height:.92;margin:0;text-wrap:balance}
+.title{font-size:calc(14cqw*var(--k));letter-spacing:.01em}
+.big{font-size:calc(8cqw*var(--k))}
+.big span{color:var(--accent);font-variant-numeric:tabular-nums}
+.tag{display:inline-block;font-size:max(10px,calc(1.5cqw*var(--k)));font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 10px}
+
+/* entrance motion, replays whenever a scene becomes active */
+@keyframes rise{from{opacity:0;transform:translateY(2.5cqw)}to{opacity:1;transform:none}}
+@keyframes pop{0%{opacity:0;transform:scale(.6)}70%{transform:scale(1.06)}100%{opacity:1;transform:none}}
+.scene.on [data-a="rise"]{animation:rise .6s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0s)}
+.scene.on [data-a="pop"]{animation:pop .45s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0s)}
+
+/* scene 2: the pool */
+.grid{display:grid;grid-template-columns:repeat(10,1fr);gap:calc(.9cqw*var(--k))}
+@container (max-width:560px){.grid{grid-template-columns:repeat(6,1fr)}}
+.tile{background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:calc(.7cqw*var(--k)) calc(.6cqw*var(--k));text-align:center}
+.tile b{display:block;font-family:var(--display);font-weight:800;font-size:calc(2.6cqw*var(--k));line-height:1.05;letter-spacing:.02em}
+.tile i{display:flex;gap:2px;margin-top:2px;font-style:normal;font-size:max(8px,calc(1.2cqw*var(--k)));font-weight:700}
+.tile i span{flex:1;border-radius:3px;padding:1px 0}
+.tile .w{background:var(--win-t);color:var(--win)}
+.tile .l{background:var(--loss-t);color:var(--loss)}
+
+/* scene 3: the draft */
+.clock{display:flex;align-items:baseline;gap:calc(2cqw*var(--k));flex-wrap:wrap}
+.chip{display:inline-block;font-family:var(--display);font-weight:800;font-size:calc(8cqw*var(--k));line-height:1;padding:0 calc(1.6cqw*var(--k));border-radius:8px;background:var(--accent);color:var(--accent-ink);text-transform:uppercase}
+.rows{display:grid;gap:calc(1.2cqw*var(--k))}
+.rrow{display:grid;grid-template-columns:repeat(6,1fr);gap:calc(.9cqw*var(--k));align-items:stretch}
+.rlab{font-size:max(10px,calc(1.6cqw*var(--k)));font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 3px}
+.slot{background:var(--surface2);border:1px solid var(--line);border-radius:6px;text-align:center;padding:calc(.8cqw*var(--k)) 0;font-family:var(--display);font-weight:800;font-size:calc(3cqw*var(--k));line-height:1.1}
+.slot small{display:block;font-family:var(--body);font-weight:600;font-size:max(8px,calc(1.2cqw*var(--k)));letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.slot.first{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.slot.first small{color:var(--accent-ink)}
+
+/* scene 4: scoring */
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:calc(2cqw*var(--k))}
+.sc{border:2px solid;border-radius:10px;padding:calc(1.8cqw*var(--k));display:flex;flex-direction:column;gap:calc(.6cqw*var(--k))}
+.sc.w{border-color:var(--win);background:var(--win-t);color:var(--win)}
+.sc.l{border-color:var(--loss);background:var(--loss-t);color:var(--loss)}
+.sc .pk{font-family:var(--display);font-weight:800;font-size:calc(4.6cqw*var(--k));line-height:1;text-transform:uppercase}
+.sc .num{font-family:var(--display);font-weight:800;font-size:calc(11cqw*var(--k));line-height:.95;font-variant-numeric:tabular-nums}
+.sc .cap{font-size:max(11px,calc(1.9cqw*var(--k)));color:var(--fg)}
+.rec{font-family:var(--display);font-weight:800;font-size:calc(5cqw*var(--k));line-height:1;text-transform:uppercase}
+
+/* scene: the pick board */
+.pb{border:2px solid;border-radius:10px;padding:calc(1.4cqw*var(--k)) calc(1.6cqw*var(--k));display:flex;flex-direction:column;gap:calc(.7cqw*var(--k))}
+.pb.W{border-color:var(--win);background:var(--win-t);color:var(--win)}
+.pb.L{border-color:var(--loss);background:var(--loss-t);color:var(--loss)}
+.pb h3{margin:0;font-family:var(--display);font-weight:800;font-size:calc(3.6cqw*var(--k));text-transform:uppercase;line-height:1}
+.pb .sub{margin:0;font-size:max(11px,calc(1.9cqw*var(--k)));font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--fg)}
+.pr{display:grid;grid-template-columns:auto 1fr auto;gap:calc(1cqw*var(--k));align-items:center}
+.pr .t{font-family:var(--display);font-weight:800;font-size:max(13px,calc(2.6cqw*var(--k)));line-height:1.2;border-radius:4px;padding:0 calc(.8cqw*var(--k));background:var(--bg);min-width:calc(10cqw*var(--k))}
+.pr .trk{height:calc(1.8cqw*var(--k));min-height:8px;background:var(--surface);border-radius:4px;overflow:hidden}
+.pr .bar{display:block;height:100%;width:var(--w);background:currentColor;border-radius:4px}
+.pr .p{font-family:var(--display);font-weight:800;font-size:max(14px,calc(3cqw*var(--k)));font-variant-numeric:tabular-nums;color:var(--fg)}
+@keyframes grow{from{width:0}}
+.scene.on .pr .bar{animation:grow .9s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0s)}
+.mid{display:flex;flex-wrap:wrap;gap:calc(1.2cqw*var(--k)) calc(1.6cqw*var(--k));align-items:center}
+.mid .lab{font-size:max(11px,calc(1.8cqw*var(--k)));font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.mid .mc{font-family:var(--display);font-weight:800;font-size:max(13px,calc(2.6cqw*var(--k)));color:var(--muted);border:1px dashed var(--line);border-radius:4px;padding:0 calc(.8cqw*var(--k))}
+.mid .note{font-size:max(12px,calc(2cqw*var(--k)));color:var(--muted)}
+
+/* scene 5: the ledger */
+.ledgers{display:grid;grid-template-columns:1fr 1fr;gap:calc(2cqw*var(--k))}
+.led{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:calc(1.2cqw*var(--k)) calc(1.6cqw*var(--k))}
+.led h3{margin:0 0 calc(.6cqw*var(--k));font-family:var(--display);font-weight:800;font-size:calc(3.2cqw*var(--k));text-transform:uppercase;letter-spacing:.02em}
+.lr{display:flex;justify-content:space-between;align-items:center;padding:calc(.25cqw*var(--k)) 0;border-bottom:1px solid var(--line)}
+.lr .t{font-family:var(--display);font-weight:800;font-size:max(12px,calc(2.3cqw*var(--k)));line-height:1.2;border-radius:4px;padding:0 calc(.8cqw*var(--k));letter-spacing:.02em}
+.lr .t.W{background:var(--win-t);color:var(--win)}
+.lr .t.L{background:var(--loss-t);color:var(--loss)}
+.lr .p{font-size:max(12px,calc(2.1cqw*var(--k)));font-weight:700;font-variant-numeric:tabular-nums}
+.lt{display:flex;justify-content:space-between;align-items:baseline;padding-top:calc(.6cqw*var(--k));font-family:var(--display);font-weight:800;text-transform:uppercase;font-size:calc(3cqw*var(--k))}
+.lt b{color:var(--accent);font-variant-numeric:tabular-nums}
+.strip{display:flex;flex-wrap:wrap;gap:calc(1.2cqw*var(--k)) calc(1.8cqw*var(--k));align-items:baseline}
+.strip .lab{font-size:max(11px,calc(1.8cqw*var(--k)));font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.strip .it{font-family:var(--display);font-weight:800;font-size:calc(2.8cqw*var(--k));text-transform:uppercase;font-variant-numeric:tabular-nums}
+.strip .it em{font-style:normal;color:var(--muted);margin-right:4px}
+.strip .it.top{color:var(--accent)}
+
+/* scene 6: the race */
+.board{position:relative;height:calc(30cqw*var(--k))}
+.row{position:absolute;left:0;right:0;top:calc(var(--r,0)*(100%/6));height:calc(100%/6);display:flex;align-items:center;gap:calc(1.4cqw*var(--k));
+  transition:top .7s cubic-bezier(.3,.8,.3,1)}
+.nm{width:calc(7.5cqw*var(--k));font-family:var(--display);font-weight:800;font-size:calc(2.6cqw*var(--k));text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.track{flex:1;height:62%;background:var(--surface2);border-radius:5px;overflow:hidden}
+.fill{height:100%;width:0;background:var(--muted);border-radius:5px;transition:width .7s cubic-bezier(.3,.8,.3,1),background .3s}
+.row.lead .fill{background:var(--accent)}
+.row.lead .nm{color:var(--accent)}
+.val{width:calc(7cqw*var(--k));text-align:right;font-family:var(--display);font-weight:800;font-size:calc(3cqw*var(--k));font-variant-numeric:tabular-nums}
+.snaplbl{margin:0;font-family:var(--display);font-weight:800;font-size:calc(3.6cqw*var(--k));text-transform:uppercase;color:var(--accent)}
+
+/* controls */
+.ctl{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:10px 16px;font-weight:700;min-height:44px;min-width:84px;cursor:pointer}
+.btn.ghost{background:var(--surface);color:var(--fg);border:1px solid var(--line)}
+#seek{flex:1;min-width:120px;accent-color:var(--accent);height:44px}
+.time{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:84px;text-align:right}
+@media (prefers-reduced-motion:reduce){
+  .scene.on [data-a]{animation-duration:.01s;animation-delay:0s}
+  .row,.fill,.scene{transition:none}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <p style="margin:0 0 12px;font-size:13px"><a href="./" style="color:var(--accent);font-weight:600;text-decoration:none">&larr; League tracker</a></p>
+  <div class="frame" id="frame" role="region" aria-label="Animated explainer of how W/L Pickem works">
+
+    <section class="scene on" data-i="0">
+      <p class="kick" data-a="rise" style="--d:.05s">2026&ndash;27 NBA season</p>
+      <h1 class="hl title" data-a="rise" style="--d:.15s">W/L<br>Pickem</h1>
+      <p class="line" data-a="rise" style="--d:.35s">Draft NBA teams&rsquo; wins and losses. The most points at the end of the season wins.</p>
+    </section>
+
+    <section class="scene" data-i="1">
+      <p class="kick" data-a="rise">The pool</p>
+      <div class="grid" id="grid"></div>
+      <p class="hl big" data-a="rise" style="--d:1s"><span id="cnt">0</span> picks up for grabs</p>
+      <p class="line" data-a="rise" style="--d:1.2s">Every team can be picked twice: once for its wins (W) and once for its losses (L).</p>
+    </section>
+
+    <section class="scene" data-i="2">
+      <p class="kick" data-a="rise">The pick board <span class="tag" style="margin-left:8px">Example</span></p>
+      <p class="line" data-a="rise" style="--d:.1s">The best picks sit at both ends of the standings.</p>
+      <div class="cards" id="pboard"></div>
+      <div class="mid" data-a="rise" style="--d:3.4s">
+        <span class="lab">Middle teams</span>
+        <span class="mc">MIA W 41</span>
+        <span class="mc">POR L 38</span>
+        <span class="note">Fewer points either way.</span>
+      </div>
+    </section>
+
+    <section class="scene" data-i="3">
+      <p class="kick" data-a="rise">The draft</p>
+      <div class="clock" data-a="rise" style="--d:.2s">
+        <p class="line" style="margin:0">On the clock:</p>
+        <span class="chip" data-a="pop" style="--d:.5s">Drafter A</span>
+      </div>
+      <p class="line" data-a="rise" style="--d:.7s">Each pick takes one team&rsquo;s W or L, and every side can only be taken once.</p>
+      <div class="rows">
+        <div>
+          <p class="rlab">Round 1 &rarr;</p>
+          <div class="rrow" id="r1"></div>
+        </div>
+        <div>
+          <p class="rlab">&larr; Round 2 (snake)</p>
+          <div class="rrow" id="r2"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene" data-i="4">
+      <p class="kick" data-a="rise">Scoring <span class="tag" style="margin-left:8px">Example</span></p>
+      <p class="rec" data-a="rise" style="--d:.15s">A team finishes 58&ndash;24</p>
+      <div class="cards">
+        <div class="sc w" data-a="rise" style="--d:.6s">
+          <span class="pk">You picked W</span>
+          <span class="num" id="nw">0</span>
+          <span class="cap">points, its wins</span>
+        </div>
+        <div class="sc l" data-a="rise" style="--d:1s">
+          <span class="pk">You picked L</span>
+          <span class="num" id="nl">0</span>
+          <span class="cap">points, its losses</span>
+        </div>
+      </div>
+      <p class="line" data-a="rise" style="--d:1.4s">Pick strong teams to win. Pick weak teams to <b>lose</b>.</p>
+    </section>
+
+    <section class="scene" data-i="5">
+      <p class="kick" data-a="rise">The ledger <span class="tag" style="margin-left:8px">Example</span></p>
+      <p class="line" data-a="rise" style="--d:.1s">Ten picks add up to one total.</p>
+      <div class="ledgers" id="ledgers"></div>
+      <div class="strip" id="strip" data-a="rise" style="--d:6s"></div>
+    </section>
+
+    <section class="scene" data-i="6">
+      <p class="kick" data-a="rise">The race <span class="tag" style="margin-left:8px">Example season</span></p>
+      <p class="snaplbl" id="snaplbl">Week 1</p>
+      <div class="board" id="board" data-a="rise" style="--d:.2s"></div>
+      <p class="line" data-a="rise" style="--d:.5s">Team records update automatically every night.</p>
+    </section>
+
+  </div>
+
+  <div class="ctl">
+    <button class="btn" id="play" type="button">Pause</button>
+    <button class="btn ghost" id="replay" type="button">Replay</button>
+    <input type="range" id="seek" min="0" max="58" step="0.1" value="0" aria-label="Timeline">
+    <span class="time" id="time">0:00 / 0:58</span>
+  </div>
+</div>
+
+<script>
+(function(){
+var SC=[[0,5],[5,12],[12,21],[21,28],[28,38],[38,50],[50,58]],TOTAL=58;
+var PB_TOP=[['OKC','W',61],['CLE','W',50],['NYK','W',46]],PB_BOT=[['WAS','L',56],['UTA','L',52],['CHA','L',45]];
+var LED=[['Drafter A',[['OKC','W',61],['WAS','L',56],['CLE','W',50],['UTA','L',52],['NYK','W',46],['CHA','L',45],['MIA','W',41],['POR','L',38],['CHI','W',36],['PHX','L',33]]],
+['Drafter B',[['BOS','W',58],['BKN','L',57],['HOU','W',53],['NOP','L',51],['DET','W',47],['SAC','L',46],['MIL','W',44],['TOR','L',40],['MIN','W',38],['LAC','L',34]]]];
+var TEAMS=['ATL','BOS','BKN','CHA','CHI','CLE','DET','IND','MIA','MIL','NYK','ORL','PHI','TOR','WAS','DAL','DEN','GSW','HOU','LAC','LAL','MEM','MIN','NOP','OKC','PHX','POR','SAC','SAS','UTA'];
+var SNAP=[[8,12,6,10,14,9],[230,236,218,243,225,231],[458,468,441,482,449,463]];
+var SNAPLBL=['Week 1','Midseason','Final'];
+var NAMES=['A','B','C','D','E','F'];
+var $=function(id){return document.getElementById(id);};
+var scenes=[].slice.call(document.querySelectorAll('.scene'));
+var clamp=function(x){return Math.max(0,Math.min(1,x));};
+var ease=function(p){return 1-Math.pow(1-p,3);};
+
+/* build static pieces */
+$('grid').innerHTML=TEAMS.map(function(t,i){return '<div class="tile" data-a="rise" style="--d:'+(0.25+i*0.03).toFixed(2)+'s"><b>'+t+'</b><i><span class="w">W</span><span class="l">L</span></i></div>';}).join('');
+(function(){
+  var h1='',h2='';
+  for(var n=1;n<=6;n++){h1+='<div class="slot'+(n===1?' first':'')+'" data-a="pop" style="--d:'+(0.9+n*0.4).toFixed(2)+'s">'+n+'<small>Pick '+n+'</small></div>';}
+  for(var m=12;m>=7;m--){h2+='<div class="slot" data-a="pop" style="--d:'+(0.9+m*0.4).toFixed(2)+'s">'+m+'<small>Pick '+m+'</small></div>';}
+  $('r1').innerHTML=h1;$('r2').innerHTML=h2;
+})();
+(function(){
+  function rows(list,base){return list.map(function(r,i){return '<div class="pr" data-a="rise" style="--d:'+(base+i*0.4).toFixed(1)+'s"><span class="t">'+r[0]+' '+r[1]+'</span><span class="trk"><span class="bar" style="--w:'+Math.round(r[2]/70*100)+'%;--d:'+(base+0.2+i*0.4).toFixed(1)+'s"></span></span><span class="p">'+r[2]+'</span></div>';}).join('');}
+  $('pboard').innerHTML='<div class="pb W" data-a="rise" style="--d:.4s"><h3>Top teams</h3><p class="sub">Take the W</p>'+rows(PB_TOP,0.9)+'</div><div class="pb L" data-a="rise" style="--d:.5s"><h3>Bottom teams</h3><p class="sub">Take the L</p>'+rows(PB_BOT,1.0)+'</div>';
+})();
+$('ledgers').innerHTML=LED.map(function(d,di){
+  var rows=d[1].map(function(r,i){return '<div class="lr" data-a="rise" style="--d:'+(0.8+i*0.4).toFixed(1)+'s"><span class="t '+r[1]+'">'+r[0]+' '+r[1]+'</span><span class="p">'+r[2]+'</span></div>';}).join('');
+  return '<div class="led"><h3>'+d[0]+'</h3>'+rows+'<div class="lt"><span>Total</span><b id="lt'+di+'">0</b></div></div>';
+}).join('');
+(function(){
+  var fin=SNAP[2],top=fin.indexOf(Math.max.apply(null,fin));
+  $('strip').innerHTML='<span class="lab">All six totals</span>'+fin.map(function(v,i){return '<span class="it'+(i===top?' top':'')+'"><em>'+NAMES[i]+'</em>'+v+'</span>';}).join('');
+})();
+function setLT(n){
+  for(var di=0;di<LED.length;di++){var s=0;for(var k=0;k<n;k++)s+=LED[di][1][k][2];$('lt'+di).textContent=s;}
+}
+$('board').innerHTML=NAMES.map(function(n,i){return '<div class="row" id="row'+i+'" style="--r:'+i+'"><span class="nm">Drafter '+n+'</span><div class="track"><div class="fill" id="fill'+i+'"></div></div><span class="val" id="val'+i+'">0</span></div>';}).join('');
+
+var cur=0,curSnap=-1,t=0,last=null,dragging=false;
+var playing=!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+function applySnap(i){
+  curSnap=i;var vals=SNAP[i];
+  var order=vals.map(function(v,k){return k;}).sort(function(a,b){return vals[b]-vals[a];});
+  var rank={};order.forEach(function(k,r){rank[k]=r;});
+  for(var k=0;k<6;k++){
+    var row=$('row'+k);
+    row.style.setProperty('--r',rank[k]);
+    row.classList.toggle('lead',rank[k]===0&&i>0);
+    $('fill'+k).style.width=(vals[k]/500*100)+'%';
+    $('val'+k).textContent=vals[k];
+  }
+  $('snaplbl').textContent=SNAPLBL[i];
+}
+function sceneAt(x){for(var i=0;i<SC.length;i++){if(x<SC[i][1])return i;}return SC.length-1;}
+function activate(i){
+  scenes.forEach(function(s){s.classList.remove('on');});
+  void $('frame').offsetWidth;
+  scenes[i].classList.add('on');
+  cur=i;
+  if(i===6){curSnap=-1;applySnap(0);}
+}
+function fmt(x){var s=Math.floor(x);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+function update(force){
+  var i=sceneAt(t);
+  if(i!==cur||force)activate(i);
+  var lt=t-SC[i][0];
+  if(i===1)$('cnt').textContent=Math.round(60*ease(clamp((lt-1.6)/3.2)));
+  if(i===4){var p=ease(clamp((lt-2)/3.2));$('nw').textContent=Math.round(58*p);$('nl').textContent=Math.round(24*p);}
+  if(i===5){setLT(lt<0.8?0:Math.min(10,Math.floor((lt-0.8)/0.4)+1));}
+  else setLT(i>5?10:0);
+  if(i===6){var si=lt<2.2?0:(lt<5?1:2);if(si!==curSnap)applySnap(si);}
+  if(i!==1)$('cnt').textContent=i>1?'60':'0';
+  if(i<4){$('nw').textContent='0';$('nl').textContent='0';}
+  if(i>4){$('nw').textContent='58';$('nl').textContent='24';}
+  if(!dragging)$('seek').value=t;
+  $('time').textContent=fmt(t)+' / '+fmt(TOTAL);
+  $('play').textContent=playing?'Pause':(t>=TOTAL?'Replay':'Play');
+}
+function frame(ts){
+  if(last===null)last=ts;
+  var dt=Math.min(0.1,(ts-last)/1000);last=ts;
+  if(playing){t+=dt;if(t>=TOTAL){t=TOTAL;playing=false;}}
+  update(false);
+  requestAnimationFrame(frame);
+}
+$('play').addEventListener('click',function(){
+  if(!playing&&t>=TOTAL){t=0;update(true);}
+  playing=!playing;update(false);
+});
+$('replay').addEventListener('click',function(){t=0;playing=true;update(true);});
+var seek=$('seek');
+seek.addEventListener('pointerdown',function(){dragging=true;});
+seek.addEventListener('pointerup',function(){dragging=false;});
+seek.addEventListener('input',function(){t=parseFloat(seek.value)||0;update(true);});
+seek.addEventListener('change',function(){dragging=false;});
+
+applySnap(0);update(true);
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
