@@ -71,6 +71,14 @@ h2:first-child{margin-top:4px}
 .chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 
 .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:8px}
+.grid2 .card{margin:0;padding:8px 8px 4px}
+.card.me{border-color:var(--accent)}
+.chead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px;font-size:12px}
+.chead b{font-size:14px}
+.cpts{font-family:var(--display);font-weight:800;font-size:20px!important}
+.grid2 .tbl td{padding:5px 4px}
+.grid2 .tbl tr:last-child td{border-bottom:0}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px}
 .kpi b{display:block;font-family:var(--display);font-weight:800;font-size:22px;line-height:1}
@@ -168,6 +176,17 @@ function build(picks,store){
       d.pts+=s.pts; d.poss+=s.gp; d.pace+=s.pace;
     });
   });
+  // Real rank of every drafted side: points, then points per game played; exact ties share a rank.
+  var all=Object.keys(sides).map(function(k){return sides[k];});
+  all.forEach(function(s){s.rate=s.gp?s.pts/s.gp:0;});
+  all.forEach(function(s){
+    var better=0, same=0;
+    all.forEach(function(o){
+      if(o.pts>s.pts||(o.pts===s.pts&&o.rate>s.rate)) better++;
+      else if(o!==s&&o.pts===s.pts&&o.rate===s.rate) same++;
+    });
+    s.rank=better+1; s.tied=same>0;
+  });
   var lastDate=finals.length?finals[finals.length-1].date:null;
   drafters.forEach(function(d){d.last=0; d.sides.forEach(function(s){s.log.forEach(function(x){if(x.date===lastDate) d.last+=x.got;});});});
   drafters.sort(function(a,b){return b.pts-a.pts||b.pace-a.pace;});
@@ -190,13 +209,20 @@ function renderStandings(){
       '</td><td>'+d.pts+"–"+(d.poss-d.pts)+'</td><td>'+pct(d.pts,d.poss)+'</td><td class="'+(d.last?"pos":"mut")+'">+'+d.last+
       '</td><td class="hide-sm">'+Math.round(d.pace)+"</td></tr>";
   }).join("");
-  var grid=S.drafters.map(function(d){
-    return '<div class="card"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><b>'+esc(d.name)+'</b><span class="mut">'+d.pts+' pts</span></div><div class="who">'+
-      d.sides.map(function(s){return '<span>'+sideTag(s.key)+' <span class="mut" style="background:none;padding:0">'+rec(s.team)+' · '+s.pts+'</span></span>';}).join("")+"</div></div>";
+  var grid=S.drafters.map(function(d,i){
+    var body=d.sides.map(function(s){
+      var diff=s.pick-s.rank;
+      return '<tr><td class="l mut">'+s.pick+'</td><td class="l">'+sideTag(s.key)+'</td><td>'+(s.tied?"T":"")+s.rank+
+        '</td><td class="'+(diff>0?"pos":diff<0?"neg":"mut")+'">'+(diff>0?"+":"")+diff+'</td><td class="big">'+s.pts+"</td><td>"+rec(s.team)+"</td></tr>";
+    }).join("");
+    return '<div class="card'+meCls(d.name)+'"><div class="chead"><span><span class="mut">#'+(i+1)+'</span> <b>'+esc(d.name)+'</b></span><span><b class="cpts">'+d.pts+'</b> <span class="mut">pts · '+
+      d.pts+"–"+(d.poss-d.pts)+" · "+pct(d.pts,d.poss)+'</span></span></div>'+
+      '<table class="tbl"><thead><tr><th>Pick</th><th class="l">Side</th><th>Rank</th><th>+/−</th><th>Pts</th><th>NBA</th></tr></thead><tbody>'+body+"</tbody></table></div>";
   }).join("");
   $("standings").innerHTML='<h2>Leaderboard</h2><p class="sub">Points so far. Record counts every game one of your sides played (a point earned or not). Pace projects each side to 82 games.</p>'+
     '<div class="scroll"><table class="tbl"><thead><tr><th></th><th>Drafter</th><th>Pts</th><th>Rec</th><th>Hit</th><th>'+(S.lastDate?fmtDate(S.lastDate,{month:"numeric",day:"numeric"}):"Last")+'</th><th class="hide-sm">Pace</th></tr></thead><tbody>'+rows+"</tbody></table></div>"+
-    '<h2>Picks</h2><p class="sub">Each side with its team record and points earned.</p>'+grid+undrafted();
+    '<h2>Teams</h2><p class="sub">Rank: where the side stands among all 56 drafted sides by points (ties broken by points per game; T = still tied). +/−: draft pick minus rank, so + means it\'s outperforming its draft slot. NBA: the team\'s real record.</p>'+
+    '<div class="grid2">'+grid+"</div>"+undrafted();
 }
 function undrafted(){
   var all=[], teamsAll={}; S.games.forEach(function(g){teamsAll[g.home]=1;teamsAll[g.away]=1;});
