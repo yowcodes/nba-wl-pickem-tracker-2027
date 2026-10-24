@@ -2,8 +2,9 @@ name: Update scores and deploy
 
 on:
   schedule:
-    # Hourly from 10am to 4am ET (14:00-08:00 UTC), when lines move and games finish.
-    - cron: "5 0-8,14-23 * * *"
+    # Every 30 minutes from 10am to 4am ET (14:00-08:00 UTC). GitHub delays scheduled runs
+    # when it's busy, so asking often keeps real updates a few hours apart at worst.
+    - cron: "5,35 0-8,14-23 * * *"
   push:
     branches: [main]
   workflow_dispatch:
@@ -24,7 +25,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
+      # Always start from the latest main, not the commit that triggered the run, so a queued
+      # run can't collide with data an earlier run already pushed.
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/setup-python@v5
         with:
@@ -42,8 +47,15 @@ jobs:
             echo "No data changes"
           else
             git commit -m "Update games data"
-            git pull --rebase origin main
-            git push
+            if ! git push; then
+              # Someone pushed in between: start over from their commit and refetch.
+              git fetch origin main
+              git reset --hard origin/main
+              python scripts/update.py
+              git add data/games.json
+              git diff --cached --quiet || git commit -m "Update games data"
+              git push
+            fi
           fi
 
       - uses: actions/configure-pages@v5
