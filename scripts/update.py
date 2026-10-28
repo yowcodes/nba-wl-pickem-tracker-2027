@@ -114,21 +114,32 @@ def main():
     games = store["games"]
 
     today = datetime.now(ET).date()
-    last = min(today + timedelta(days=LOOKAHEAD_DAYS), SEASON_END)
+    window_end = today + timedelta(days=LOOKAHEAD_DAYS)
+    empty = set(store.get("emptyDates", []))
     by_date = {}
     for g in games.values():
         by_date.setdefault(g["date"], []).append(g)
 
     day = SEASON_START
     fetched = 0
-    while day <= last:
-        known = by_date.get(day.isoformat(), [])
-        settled = known and all(g["final"] for g in known) and day < today - timedelta(days=RECHECK_DAYS)
-        if not settled:
+    while day <= SEASON_END:
+        iso = day.isoformat()
+        known = by_date.get(iso, [])
+        if day > window_end:
+            # Beyond the next 10 days the schedule only needs fetching once, for the projection.
+            needed = not known and iso not in empty
+        else:
+            needed = not (known and all(g["final"] for g in known) and day < today - timedelta(days=RECHECK_DAYS))
+        if needed:
             payload = fetch(day)
             if payload is not None:
                 fetched += 1
-                for gid, g in parse_day(payload).items():
+                parsed = parse_day(payload)
+                if parsed:
+                    empty.discard(iso)
+                elif day > window_end:
+                    empty.add(iso)  # e.g. All-Star break: don't refetch every run
+                for gid, g in parsed.items():
                     old = games.get(gid, {})
                     # ESPN drops odds once a game starts: keep the last pregame line we saw.
                     if "odds" not in g and "odds" in old:
@@ -136,6 +147,7 @@ def main():
                     games[gid] = g
         day += timedelta(days=1)
 
+    store["emptyDates"] = sorted(empty)
     store["games"] = dict(sorted(games.items(), key=lambda kv: (kv[1]["start"], kv[0])))
     store["updated"] = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     os.makedirs(os.path.dirname(GAMES_PATH), exist_ok=True)

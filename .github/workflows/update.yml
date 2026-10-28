@@ -38,11 +38,14 @@ jobs:
       - name: Fetch games, scores and odds
         run: python scripts/update.py
 
+      - name: Project end-of-season standings
+        run: python scripts/project.py
+
       - name: Commit data if it changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/games.json
+          git add data/
           if git diff --cached --quiet; then
             echo "No data changes"
           else
@@ -52,7 +55,8 @@ jobs:
               git fetch origin main
               git reset --hard origin/main
               python scripts/update.py
-              git add data/games.json
+              python scripts/project.py
+              git add data/
               git diff --cached --quiet || git commit -m "Update games data"
               git push
             fi

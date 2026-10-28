@@ -71,6 +71,10 @@ h2:first-child{margin-top:4px}
 .chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 
 .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px}
+.places{display:inline-flex;gap:2px;vertical-align:middle}
+.places i{width:12px;height:12px;border-radius:2px;border:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11px;color:var(--muted);margin-top:4px}
+.legend i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
 .grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:8px}
 .grid2 .card{margin:0;padding:8px 8px 4px}
 .card.me{border-color:var(--accent)}
@@ -121,6 +125,7 @@ footer{margin-top:24px;font-size:11px;color:var(--muted)}
       <button role="tab" data-tab="ledger">Ledger</button>
       <button role="tab" data-tab="games">Games</button>
       <button role="tab" data-tab="streaks">Streaks</button>
+      <button role="tab" data-tab="projection">Proj</button>
       <a href="how-it-works.html">Rules</a>
     </nav>
   </div>
@@ -131,6 +136,7 @@ footer{margin-top:24px;font-size:11px;color:var(--muted)}
   <section id="ledger" hidden></section>
   <section id="games" hidden></section>
   <section id="streaks" hidden></section>
+  <section id="projection" hidden></section>
   <footer>Scores and odds from ESPN's public scoreboard, refreshed hourly. Odds are DraftKings moneylines with the vig removed. The NBA Cup final doesn't count.</footer>
 </main>
 
@@ -145,7 +151,9 @@ var S={}; // state built from data
 
 function load(){
   var v="?v="+Date.now();
-  return Promise.all([fetch("data/picks.json"+v).then(function(r){return r.json();}),fetch("data/games.json"+v).then(function(r){return r.json();})]);
+  var opt=function(u){return fetch(u+v).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});};
+  return Promise.all([fetch("data/picks.json"+v).then(function(r){return r.json();}),fetch("data/games.json"+v).then(function(r){return r.json();}),
+    opt("data/projection.json"),opt("data/projection_history.json")]);
 }
 
 function build(picks,store){
@@ -381,7 +389,62 @@ function renderStreaks(){
 }
 
 /* ---------- routing ---------- */
-var TABS=["standings","ledger","games","streaks"];
+/* ---------- projection ---------- */
+function renderProjection(){
+  var P=S.proj, H=S.projHist||[];
+  if(!P){$("projection").innerHTML='<p class="empty">The first projection runs with the next data update.</p>';return;}
+  var names=S.picks.drafters.slice().sort(function(a,b){return P.drafters[b].first-P.drafters[a].first||P.drafters[b].mean-P.drafters[a].mean;});
+  var n=names.length;
+  var rows=names.map(function(nm){
+    var r=P.drafters[nm], d=S.byName[nm];
+    var cells=r.place.map(function(p){var a=Math.min(1,p*2.2); return '<i title="'+Math.round(p*100)+'%" style="background:rgba(251,146,60,'+a.toFixed(2)+')"></i>';}).join("");
+    return '<tr class="'+meCls(nm).trim()+'"><td class="l nm">'+esc(nm)+'</td><td>'+d.pts+'</td><td class="big">'+Math.round(r.mean)+'</td><td>'+r.p10+"–"+r.p90+'</td><td class="big">'+fmtPct(r.first)+'</td><td><span class="places">'+cells+"</span></td></tr>";
+  }).join("");
+  $("projection").innerHTML='<h2>End-of-season projection</h2><p class="sub">'+P.sims.toLocaleString()+' simulated seasons, run '+fmtDate(P.date)+'. '+P.gamesLeft+' games left.</p>'+
+    '<div class="scroll"><table class="tbl"><thead><tr><th>Drafter</th><th>Now</th><th>Proj</th><th>80% range</th><th>Win</th><th>Finish 1st→7th</th></tr></thead><tbody>'+rows+"</tbody></table></div>"+
+    '<p class="note">Proj: average final points. 80% range: the middle 80% of simulated finishes. Win: share of seasons finishing 1st (ties split). Finish: darker = more likely to land in that place.</p>'+
+    '<h2>Final-points curves</h2><p class="sub">How often each drafter finished with each point total across the simulated seasons.</p>'+curveChart(P,names)+
+    '<h2>Title odds over time</h2>'+trendChart(H,names)+
+    '<h2>How it works</h2><p class="sub" style="margin:0">Team strength comes only from betting-market game lines: every saved DraftKings moneyline (vig removed) is used to fit a rating for each team plus home court, with recent lines counting more. Each remaining game gets a win chance from those ratings, or from its own line once one is posted. In every simulated season each team\'s strength also drifts by a random amount, more when more season is left, to cover injuries, trades and slumps. Early in the season the ratings rest on only a few lines per team, so treat October and November numbers loosely. Updates with every data refresh.</p>';
+}
+var COLS=["#FB923C","#5EEAD4","#FDA4AF","#A5B4FC","#FDE047","#86EFAC","#E8EDF5"];
+function curveChart(P,names){
+  if(!P.bins) return "";
+  var b=P.bins, W=340, Hh=150, pl=8, pr=8, pt=8, pb=18, max=0, order=S.picks.drafters;
+  names.forEach(function(n){P.drafters[n].curve.forEach(function(c){if(c>max) max=c;});});
+  var x=function(i){return pl+(W-pl-pr)*(i+0.5)/b.count;}, y=function(v){return pt+(Hh-pt-pb)*(1-v/max);};
+  var paths="", leg="";
+  names.forEach(function(n){
+    var k=order.indexOf(n), c=COLS[k%COLS.length], v=P.drafters[n].curve;
+    // light 3-bin smoothing so the curve reads as a shape, not a bar chart
+    var sm=v.map(function(_,i){var s=0,w=0; for(var j=-1;j<=1;j++){if(v[i+j]!=null){var ww=j?1:2; s+=v[i+j]*ww; w+=ww;}} return s/w;});
+    var pts=sm.map(function(val,i){return x(i).toFixed(1)+","+y(val).toFixed(1);}).join(" ");
+    paths+='<polyline points="'+pts+'" fill="none" stroke="'+c+'" stroke-width="'+(n===ME?2.5:1.5)+'" stroke-linejoin="round"/>';
+    leg+='<span><i style="background:'+c+'"></i>'+esc(n)+" "+Math.round(P.drafters[n].mean)+"</span>";
+  });
+  var ticks=""; for(var t=Math.ceil(b.start/20)*20;t<=b.start+b.width*b.count;t+=20){var xx=pl+(W-pl-pr)*(t-b.start)/(b.width*b.count); ticks+='<text x="'+xx.toFixed(1)+'" y="'+(Hh-4)+'" text-anchor="middle" font-size="9" fill="#93A0B5">'+t+"</text>";}
+  return '<svg viewBox="0 0 '+W+" "+Hh+'" width="100%" role="img" aria-label="Distribution of final points by drafter"><line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+(Hh-pb)+'" y2="'+(Hh-pb)+'" stroke="#2A3547"/>'+paths+ticks+'</svg><div class="legend">'+leg+"</div>";
+}
+function fmtPct(p){return p>=0.995?">99%":p<0.005?(p>0?"<1%":"0%"):Math.round(p*100)+"%";}
+function trendChart(H,names){
+  if(H.length<2) return '<p class="sub">The chart fills in as daily projections build up ('+H.length+" so far).</p>";
+  var W=340,Hh=150,pl=28,pr=8,pt=8,pb=18;
+  var max=0; H.forEach(function(h){names.forEach(function(n){if(h[n]&&h[n][0]>max) max=h[n][0];});});
+  max=Math.max(0.2,Math.ceil(max*10)/10);
+  var x=function(i){return pl+(W-pl-pr)*i/(H.length-1);}, y=function(v){return pt+(Hh-pt-pb)*(1-v/max);};
+  var grid="", lines="", leg="";
+  for(var g=0;g<=max+1e-9;g+=max>0.5?0.2:0.1){grid+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(g)+'" y2="'+y(g)+'" stroke="#2A3547"/><text x="'+(pl-4)+'" y="'+(y(g)+3)+'" text-anchor="end" font-size="9" fill="#93A0B5">'+Math.round(g*100)+"%</text>";}
+  names.forEach(function(n,k){
+    var pts=H.map(function(h,i){return h[n]?x(i).toFixed(1)+","+y(h[n][0]).toFixed(1):null;}).filter(Boolean).join(" ");
+    var me=n===ME, c=COLS[S.picks.drafters.indexOf(n)%COLS.length];
+    lines+='<polyline points="'+pts+'" fill="none" stroke="'+c+'" stroke-width="'+(me?2.5:1.5)+'" stroke-linejoin="round"/>';
+    leg+='<span><i style="background:'+c+'"></i>'+esc(n)+"</span>";
+  });
+  var lab='<text x="'+pl+'" y="'+(Hh-4)+'" font-size="9" fill="#93A0B5">'+fmtDate(H[0].date,{month:"short",day:"numeric"})+'</text><text x="'+(W-pr)+'" y="'+(Hh-4)+'" text-anchor="end" font-size="9" fill="#93A0B5">'+fmtDate(H[H.length-1].date,{month:"short",day:"numeric"})+"</text>";
+  return '<svg viewBox="0 0 '+W+" "+Hh+'" width="100%" role="img" aria-label="Chance of finishing first over time">'+grid+lines+lab+'</svg><div class="legend">'+leg+"</div>";
+}
+
+var TABS=["standings","ledger","games","streaks","projection"];
 function setHash(h){history.replaceState(null,"","#"+h);}
 function show(tab){
   TABS.forEach(function(t){$(t).hidden=t!==tab;});
@@ -394,12 +457,12 @@ function route(){
   if(tab==="streaks"&&h[1]) win=h[1];
   renderAll(); show(tab);
 }
-function renderAll(){renderStandings(); renderLedger(); renderGames(); renderStreaks();}
+function renderAll(){renderStandings(); renderLedger(); renderGames(); renderStreaks(); renderProjection();}
 [].forEach.call(document.querySelectorAll("nav [data-tab]"),function(b){b.onclick=function(){setHash(b.dataset.tab); show(b.dataset.tab); window.scrollTo(0,0);};});
 window.addEventListener("hashchange",route);
 
 load().then(function(r){
-  build(r[0],r[1]);
+  build(r[0],r[1]); S.proj=r[2]; S.projHist=r[3];
   var u=new Date(r[1].updated); $("upd").textContent="Updated "+u.toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
   route();
 }).catch(function(e){$("standings").innerHTML='<p class="empty">Couldn\'t load league data. Try refreshing.</p>'; console.error(e);});
